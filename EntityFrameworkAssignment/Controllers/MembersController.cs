@@ -1,15 +1,18 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using EntityFrameworkAssignment.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.JsonPatch;
 
 namespace EntityFrameworkAssignment.Controllers
 {
-    public class MembersController : Controller
+    [ApiController]
+    [Route("[controller]")]
+    public class MembersController : ControllerBase
     {
         private readonly MembersContext _context;
 
@@ -18,135 +21,56 @@ namespace EntityFrameworkAssignment.Controllers
             _context = context;
         }
 
-        // GET: Members
-        public async Task<IActionResult> Index()
+        [HttpGet]
+        public IActionResult Get()
         {
-            return View(await _context.Members.ToListAsync());
+            return Ok(new { Message = "Success retreiving data", Status = true, Data = _context.Members });
         }
 
-        // GET: Members/Details/5
-        public async Task<IActionResult> Details(int? id)
+        [HttpGet("{id}")]
+        public IActionResult Get(int id)
         {
-            if (id == null)
+            var data = _context.Members.Find(id);
+
+            if (data == null)
             {
-                return NotFound();
+                return NotFound(new { Message = "Member not found", Status = false });
             }
 
-            var member = await _context.Members
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (member == null)
-            {
-                return NotFound();
-            }
-
-            return View(member);
+            return Ok(new { Message = "Success retreiving data", Status = true, Data = data });
         }
 
-        // GET: Members/Create
-        public IActionResult Create()
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
         {
-            return View();
-        }
+            var data = await _context.Members.FindAsync(id);
 
-        // POST: Members/Create
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Username,Password,Email,Full_name,Popularity")] Member member)
-        {
-            if (ModelState.IsValid)
+            if (data == null)
             {
-                _context.Add(member);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
-            return View(member);
-        }
-
-        // GET: Members/Edit/5
-        public async Task<IActionResult> Edit(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
+                return NotFound(new { Message = "Member not found", Status = false });
             }
 
-            var member = await _context.Members.FindAsync(id);
-            if (member == null)
-            {
-                return NotFound();
-            }
-            return View(member);
-        }
-
-        // POST: Members/Edit/5
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Username,Password,Email,Full_name,Popularity")] Member member)
-        {
-            if (id != member.Id)
-            {
-                return NotFound();
-            }
-
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    _context.Update(member);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!MemberExists(member.Id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
-            }
-            return View(member);
-        }
-
-        // GET: Members/Delete/5
-        public async Task<IActionResult> Delete(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var member = await _context.Members
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (member == null)
-            {
-                return NotFound();
-            }
-
-            return View(member);
-        }
-
-        // POST: Members/Delete/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
-        {
-            var member = await _context.Members.FindAsync(id);
-            _context.Members.Remove(member);
+            _context.Members.Remove(data);
             await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+
+            return StatusCode(204);
         }
 
-        private bool MemberExists(int id)
+        [HttpPost]
+        public IActionResult Post(Member data)
         {
-            return _context.Members.Any(e => e.Id == id);
+            _context.Members.Add(data);
+            _context.SaveChanges();
+            return Ok();
         }
+
+        [HttpPatch("{id}")]
+        public IActionResult PatchMember(int id, [FromBody]JsonPatchDocument<Member> data)
+        {
+            data.ApplyTo(_context.Members.Find(id));
+            _context.SaveChanges();
+            return Ok();
+        }
+
     }
 }
